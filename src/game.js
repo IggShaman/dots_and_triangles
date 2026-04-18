@@ -1,104 +1,103 @@
-export const GRID_SIZE = 6;
+export const ROWS = 10;
+
+// dots[r][c]    r=0..9,  c=0..r
+// hEdges[r][c]  r=0..9,  c=0..r-1   edge (r,c)↔(r,c+1)
+// lEdges[r][c]  r=0..8,  c=0..r     edge (r,c)↔(r+1,c)
+// rEdges[r][c]  r=0..8,  c=0..r     edge (r,c)↔(r+1,c+1)
+// upTri[r][c]   r=0..8,  c=0..r     △ apex=(r,c), base=(r+1,c)–(r+1,c+1)
+// downTri[r][c] r=0..8,  c=0..r-1   ▽ base=(r,c)–(r,c+1), apex=(r+1,c+1)
 
 export function initGameState() {
   return {
-    // points[r][c]: null | 'player1' | 'player2'
-    points: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null)),
-    // hLines[r][c]: line from (r,c)→(r,c+1),  c ∈ [0, GRID_SIZE-2]
-    hLines: Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE - 1).fill(null)),
-    // vLines[r][c]: line from (r,c)→(r+1,c),  r ∈ [0, GRID_SIZE-2]
-    vLines: Array(GRID_SIZE - 1).fill(null).map(() => Array(GRID_SIZE).fill(null)),
-    // squares[sr][sc]: square with top-left at (sr,sc), indices ∈ [0, GRID_SIZE-2]
-    squares: Array(GRID_SIZE - 1).fill(null).map(() => Array(GRID_SIZE - 1).fill(null)),
-    scores: { player1: 0, player2: 0 },
+    dots:    Array.from({ length: ROWS },     (_, r) => Array(r + 1).fill(null)),
+    hEdges:  Array.from({ length: ROWS },     (_, r) => Array(r).fill(null)),
+    lEdges:  Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
+    rEdges:  Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
+    upTri:   Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
+    downTri: Array.from({ length: ROWS - 1 }, (_, r) => Array(r).fill(null)),
+    scores:  { player1: 0, player2: 0 },
     currentPlayer: 'player1',
     gameOver: false,
   };
 }
 
-function getLine(hLines, vLines, r1, c1, r2, c2) {
-  if (r1 === r2) return hLines[r1][Math.min(c1, c2)];
-  return vLines[Math.min(r1, r2)][c1];
+function inBounds(r, c) {
+  return r >= 0 && r < ROWS && c >= 0 && c <= r;
+}
+
+function getEdge({ hEdges, lEdges, rEdges }, r1, c1, r2, c2) {
+  if (r1 === r2) return hEdges[r1][Math.min(c1, c2)];
+  const [rT, cT, , cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
+  return cB === cT ? lEdges[rT][cT] : rEdges[rT][cT];
+}
+
+function setEdge(hEdges, lEdges, rEdges, r1, c1, r2, c2, val) {
+  if (r1 === r2) { hEdges[r1][Math.min(c1, c2)] = val; return; }
+  const [rT, cT, , cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
+  if (cB === cT) lEdges[rT][cT] = val;
+  else           rEdges[rT][cT] = val;
 }
 
 function isAdjacent(r1, c1, r2, c2) {
-  return (r1 === r2 && Math.abs(c1 - c2) === 1) ||
-         (c1 === c2 && Math.abs(r1 - r2) === 1);
+  if (!inBounds(r1, c1) || !inBounds(r2, c2)) return false;
+  if (r1 === r2) return Math.abs(c1 - c2) === 1;
+  const [rT, cT, rB, cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
+  if (rB !== rT + 1) return false;
+  return cB === cT || cB === cT + 1;
 }
 
 export function isValidMove(state, r1, c1, r2, c2) {
-  if (!isAdjacent(r1, c1, r2, c2)) return false;
-  if (getLine(state.hLines, state.vLines, r1, c1, r2, c2) !== null) return false;
-  return true;
+  return isAdjacent(r1, c1, r2, c2) && getEdge(state, r1, c1, r2, c2) === null;
 }
 
-// Returns the at-most-2 square positions adjacent to the given line segment
-function adjacentSquares(r1, c1, r2, c2) {
-  const out = [];
+// The at-most-2 triangles that share the given edge
+function adjacentTriangles(r1, c1, r2, c2) {
+  const tris = [];
   if (r1 === r2) {
     const r = r1, c = Math.min(c1, c2);
-    if (r > 0) out.push([r - 1, c]);
-    if (r < GRID_SIZE - 1) out.push([r, c]);
+    if (r > 0)         tris.push({ type: 'up',   row: r - 1, col: c });
+    if (r <= ROWS - 2) tris.push({ type: 'down', row: r,     col: c });
   } else {
-    const c = c1, r = Math.min(r1, r2);
-    if (c > 0) out.push([r, c - 1]);
-    if (c < GRID_SIZE - 1) out.push([r, c]);
-  }
-  return out.filter(([sr, sc]) =>
-    sr >= 0 && sr < GRID_SIZE - 1 && sc >= 0 && sc < GRID_SIZE - 1
-  );
-}
-
-export function makeMove(state, r1, c1, r2, c2) {
-  const player = state.currentPlayer;
-  if (!isValidMove(state, r1, c1, r2, c2)) return null;
-
-  const newPoints = state.points.map(r => [...r]);
-  if (newPoints[r1][c1] === null) newPoints[r1][c1] = player;
-  if (newPoints[r2][c2] === null) newPoints[r2][c2] = player;
-
-  const newH = state.hLines.map(r => [...r]);
-  const newV = state.vLines.map(r => [...r]);
-  if (r1 === r2) newH[r1][Math.min(c1, c2)] = player;
-  else           newV[Math.min(r1, r2)][c1] = player;
-
-  const newSquares = state.squares.map(r => [...r]);
-  let gained = 0;
-
-  for (const [sr, sc] of adjacentSquares(r1, c1, r2, c2)) {
-    if (newSquares[sr][sc] !== null) continue;
-    if (
-      newH[sr][sc]     !== null &&
-      newH[sr + 1][sc] !== null &&
-      newV[sr][sc]     !== null &&
-      newV[sr][sc + 1] !== null
-    ) {
-      newSquares[sr][sc] = player;
-      gained++;
+    const [rT, cT, , cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
+    tris.push({ type: 'up', row: rT, col: cT });
+    if (cB === cT) {
+      // l-edge: right side of downTri[rT][cT-1]
+      if (cT > 0)  tris.push({ type: 'down', row: rT, col: cT - 1 });
+    } else {
+      // r-edge: left side of downTri[rT][cT]
+      if (cT < rT) tris.push({ type: 'down', row: rT, col: cT });
     }
   }
+  return tris;
+}
 
-  const newScores = { ...state.scores, [player]: state.scores[player] + gained };
-  const next = gained > 0 ? player : (player === 'player1' ? 'player2' : 'player1');
+// upTri[r][c]   edges: lEdges[r][c], rEdges[r][c], hEdges[r+1][c]
+// downTri[r][c] edges: hEdges[r][c], lEdges[r][c+1], rEdges[r][c]
+function isTriComplete(hEdges, lEdges, rEdges, type, row, col) {
+  if (type === 'up') {
+    return lEdges[row][col]     !== null &&
+           rEdges[row][col]     !== null &&
+           hEdges[row + 1][col] !== null;
+  }
+  return hEdges[row][col]     !== null &&
+         lEdges[row][col + 1] !== null &&
+         rEdges[row][col]     !== null;
+}
 
-  const newState = {
-    points: newPoints,
-    hLines: newH,
-    vLines: newV,
-    squares: newSquares,
-    scores: newScores,
-    currentPlayer: next,
-    gameOver: false,
-  };
-  newState.gameOver = !hasAnyValidMove(newState);
-  return newState;
+export function getNeighbors(r, c) {
+  const nb = [];
+  if (c > 0)           nb.push([r, c - 1]);
+  if (c < r)           nb.push([r, c + 1]);
+  if (r < ROWS - 1)  { nb.push([r + 1, c]); nb.push([r + 1, c + 1]); }
+  if (r > 0 && c < r)  nb.push([r - 1, c]);
+  if (r > 0 && c > 0)  nb.push([r - 1, c - 1]);
+  return nb;
 }
 
 export function validSecondPoints(state, r, c) {
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]]
-    .filter(([nr,nc]) => nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE)
-    .filter(([nr,nc]) => isValidMove(state, r, c, nr, nc))
-    .map(([nr,nc]) => ({ row: nr, col: nc }));
+  return getNeighbors(r, c)
+    .filter(([nr, nc]) => isValidMove(state, r, c, nr, nc))
+    .map(([nr, nc]) => ({ row: nr, col: nc }));
 }
 
 export function isValidFirstPoint(state, r, c) {
@@ -106,8 +105,45 @@ export function isValidFirstPoint(state, r, c) {
 }
 
 export function hasAnyValidMove(state) {
-  for (let r = 0; r < GRID_SIZE; r++)
-    for (let c = 0; c < GRID_SIZE; c++)
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c <= r; c++)
       if (isValidFirstPoint(state, r, c)) return true;
   return false;
+}
+
+export function makeMove(state, r1, c1, r2, c2) {
+  if (!isValidMove(state, r1, c1, r2, c2)) return null;
+  const player = state.currentPlayer;
+
+  const newDots = state.dots.map(row => [...row]);
+  if (newDots[r1][c1] === null) newDots[r1][c1] = player;
+  if (newDots[r2][c2] === null) newDots[r2][c2] = player;
+
+  const newH = state.hEdges.map(row => [...row]);
+  const newL = state.lEdges.map(row => [...row]);
+  const newR = state.rEdges.map(row => [...row]);
+  setEdge(newH, newL, newR, r1, c1, r2, c2, player);
+
+  const newUp   = state.upTri.map(row => [...row]);
+  const newDown = state.downTri.map(row => [...row]);
+  let gained = 0;
+
+  for (const { type, row, col } of adjacentTriangles(r1, c1, r2, c2)) {
+    const arr = type === 'up' ? newUp : newDown;
+    if (arr[row][col] !== null) continue;
+    if (isTriComplete(newH, newL, newR, type, row, col)) {
+      arr[row][col] = player;
+      gained++;
+    }
+  }
+
+  const newScores = { ...state.scores, [player]: state.scores[player] + gained };
+  const next = gained > 0 ? player : (player === 'player1' ? 'player2' : 'player1');
+  const newState = {
+    dots: newDots, hEdges: newH, lEdges: newL, rEdges: newR,
+    upTri: newUp, downTri: newDown,
+    scores: newScores, currentPlayer: next, gameOver: false,
+  };
+  newState.gameOver = !hasAnyValidMove(newState);
+  return newState;
 }

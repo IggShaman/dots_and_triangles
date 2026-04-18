@@ -11,6 +11,7 @@ import {
   isValidFirstPoint, validSecondPoints,
 } from './game';
 
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const PALETTE = [
@@ -93,8 +94,8 @@ function NewGameScreen({ onStart }) {
 
   return (
     <>
-      <h1 className="app-title">Dots &amp; Boxes</h1>
-      <p className="app-subtitle">A two-player game of lines and squares</p>
+      <h1 className="app-title">Dots &amp; Triangles</h1>
+      <p className="app-subtitle">A two-player game of lines and triangles</p>
       <div className="players-row">
         <PlayerCard number={1} player={players[0]} otherColor={players[1].color.value}
           onChange={p => update(0, p)} />
@@ -169,7 +170,7 @@ function GameScreen({ config, onNewGame }) {
               <span className="score-dot" style={{ background: p.color.value }} />
               <span className="score-name">{p.name}</span>
               <span className="score-num" style={{ color: p.color.value }}>
-                {scores[key]}&thinsp;sq
+                {scores[key]}&thinsp;tri
               </span>
             </div>
           );
