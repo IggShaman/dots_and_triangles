@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { Button, Card, Elevation, FormGroup, InputGroup, Intent } from '@blueprintjs/core';
+import { Button, ButtonGroup, Card, Elevation, FormGroup, InputGroup, Intent } from '@blueprintjs/core';
 import '@blueprintjs/icons/lib/css/blueprint-icons.css';
 import '@blueprintjs/core/lib/css/blueprint.css';
 import 'normalize.css';
@@ -84,8 +84,11 @@ function PlayerCard({ number, player, otherColor, onChange }) {
   );
 }
 
+const ROW_OPTIONS = [4, 5, 6, 7, 8, 9, 10];
+
 function NewGameScreen({ onStart }) {
   const [players, setPlayers] = React.useState(DEFAULT_PLAYERS);
+  const [rows, setRows]       = React.useState(8);
   const update = (i, p) => setPlayers(prev => prev.map((x, j) => j === i ? p : x));
 
   const namesOk  = players.every(p => p.name.trim().length > 0);
@@ -102,12 +105,21 @@ function NewGameScreen({ onStart }) {
         <PlayerCard number={2} player={players[1]} otherColor={players[0].color.value}
           onChange={p => update(1, p)} />
       </div>
+      <div className="rows-picker">
+        <span className="rows-picker-label">Board size</span>
+        <ButtonGroup>
+          {ROW_OPTIONS.map(n => (
+            <Button key={n} active={rows === n} onClick={() => setRows(n)}
+              text={`${n} rows`} />
+          ))}
+        </ButtonGroup>
+      </div>
       <div className="start-row">
         {!colorsOk && (
           <span className="color-conflict-msg">Players must choose different colors.</span>
         )}
         <Button large intent={Intent.PRIMARY} disabled={!canStart}
-          onClick={() => onStart(players)} icon="play" text="Start Game" />
+          onClick={() => onStart(players, rows)} icon="play" text="Start Game" />
       </div>
     </>
   );
@@ -116,7 +128,7 @@ function NewGameScreen({ onStart }) {
 // ── Game screen ────────────────────────────────────────────────────────────
 
 function GameScreen({ config, onNewGame }) {
-  const [gameState, setGameState] = React.useState(initGameState);
+  const [gameState, setGameState] = React.useState(() => initGameState(config.rows));
   const [selected, setSelected]   = React.useState(null);
   const { players } = config;
 
@@ -209,7 +221,7 @@ function App() {
   if (screen === 'game') {
     return <GameScreen config={config} onNewGame={() => setScreen('new-game')} />;
   }
-  return <NewGameScreen onStart={players => { setConfig({ players }); setScreen('game'); }} />;
+  return <NewGameScreen onStart={(players, rows) => { setConfig({ players, rows }); setScreen('game'); }} />;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

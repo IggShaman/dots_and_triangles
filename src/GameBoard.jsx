@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { ROWS, validSecondPoints, isValidFirstPoint } from './game';
+import { validSecondPoints, isValidFirstPoint } from './game';
 
 const CELL   = 60;
 const PAD    = 40;
 const CELL_H = CELL * Math.sqrt(3) / 2;  // ≈ 51.96
 const PR     = 8;   // point radius
 
-const W = PAD * 2 + (ROWS - 1) * CELL;
-const H = PAD * 2 + (ROWS - 1) * CELL_H;
-
-// Dot (r,c) screen position — apex at top, centred
-const dpx = (r, c) => PAD + c * CELL + (ROWS - 1 - r) * CELL / 2;
-const dpy = r       => PAD + r * CELL_H;
-
 export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
   const [hovered, setHovered] = useState(null);
-  const { dots, hEdges, lEdges, rEdges, upTri, downTri, currentPlayer, gameOver } = gameState;
+  const { rows, dots, hEdges, lEdges, rEdges, upTri, downTri, currentPlayer, gameOver } = gameState;
+
+  const W = PAD * 2 + (rows - 1) * CELL;
+  const H = PAD * 2 + (rows - 1) * CELL_H;
+
+  // Dot (r,c) screen position — apex at top, centred
+  const dpx = (r, c) => PAD + c * CELL + (rows - 1 - r) * CELL / 2;
+  const dpy = r       => PAD + r * CELL_H;
 
   const pcolor   = key => key === 'player1' ? players[0].color.value : players[1].color.value;
   const curColor = pcolor(currentPlayer);
@@ -43,7 +43,7 @@ export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
       </defs>
 
       {/* Ghost grid — all possible edge positions */}
-      {Array.from({ length: ROWS }, (_, r) =>
+      {Array.from({ length: rows }, (_, r) =>
         Array.from({ length: r }, (_, c) => (
           <line key={`gh${r}_${c}`}
             x1={dpx(r,c)} y1={dpy(r)} x2={dpx(r,c+1)} y2={dpy(r)}
@@ -51,7 +51,7 @@ export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
           />
         ))
       )}
-      {Array.from({ length: ROWS - 1 }, (_, r) =>
+      {Array.from({ length: rows - 1 }, (_, r) =>
         Array.from({ length: r + 1 }, (_, c) => (
           <line key={`gl${r}_${c}`}
             x1={dpx(r,c)} y1={dpy(r)} x2={dpx(r+1,c)} y2={dpy(r+1)}
@@ -59,7 +59,7 @@ export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
           />
         ))
       )}
-      {Array.from({ length: ROWS - 1 }, (_, r) =>
+      {Array.from({ length: rows - 1 }, (_, r) =>
         Array.from({ length: r + 1 }, (_, c) => (
           <line key={`gr${r}_${c}`}
             x1={dpx(r,c)} y1={dpy(r)} x2={dpx(r+1,c+1)} y2={dpy(r+1)}

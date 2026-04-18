@@ -100,6 +100,20 @@ body {
   text-shadow: 0 1px 3px rgba(0,0,0,0.5);
   transition: background-color 0.2s;
 }
+.rows-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.rows-picker-label {
+  color: #8f99a8;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .start-row {
   display: flex;
   flex-direction: column;

@@ -1,28 +1,27 @@
-export const ROWS = 10;
+// dots[r][c]    r=0..rows-1, c=0..r
+// hEdges[r][c]  r=0..rows-1, c=0..r-1   edge (r,c)↔(r,c+1)
+// lEdges[r][c]  r=0..rows-2, c=0..r     edge (r,c)↔(r+1,c)
+// rEdges[r][c]  r=0..rows-2, c=0..r     edge (r,c)↔(r+1,c+1)
+// upTri[r][c]   r=0..rows-2, c=0..r     △ apex=(r,c), base=(r+1,c)–(r+1,c+1)
+// downTri[r][c] r=0..rows-2, c=0..r-1   ▽ base=(r,c)–(r,c+1), apex=(r+1,c+1)
 
-// dots[r][c]    r=0..9,  c=0..r
-// hEdges[r][c]  r=0..9,  c=0..r-1   edge (r,c)↔(r,c+1)
-// lEdges[r][c]  r=0..8,  c=0..r     edge (r,c)↔(r+1,c)
-// rEdges[r][c]  r=0..8,  c=0..r     edge (r,c)↔(r+1,c+1)
-// upTri[r][c]   r=0..8,  c=0..r     △ apex=(r,c), base=(r+1,c)–(r+1,c+1)
-// downTri[r][c] r=0..8,  c=0..r-1   ▽ base=(r,c)–(r,c+1), apex=(r+1,c+1)
-
-export function initGameState() {
+export function initGameState(rows = 8) {
   return {
-    dots:    Array.from({ length: ROWS },     (_, r) => Array(r + 1).fill(null)),
-    hEdges:  Array.from({ length: ROWS },     (_, r) => Array(r).fill(null)),
-    lEdges:  Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
-    rEdges:  Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
-    upTri:   Array.from({ length: ROWS - 1 }, (_, r) => Array(r + 1).fill(null)),
-    downTri: Array.from({ length: ROWS - 1 }, (_, r) => Array(r).fill(null)),
+    rows,
+    dots:    Array.from({ length: rows },     (_, r) => Array(r + 1).fill(null)),
+    hEdges:  Array.from({ length: rows },     (_, r) => Array(r).fill(null)),
+    lEdges:  Array.from({ length: rows - 1 }, (_, r) => Array(r + 1).fill(null)),
+    rEdges:  Array.from({ length: rows - 1 }, (_, r) => Array(r + 1).fill(null)),
+    upTri:   Array.from({ length: rows - 1 }, (_, r) => Array(r + 1).fill(null)),
+    downTri: Array.from({ length: rows - 1 }, (_, r) => Array(r).fill(null)),
     scores:  { player1: 0, player2: 0 },
     currentPlayer: 'player1',
     gameOver: false,
   };
 }
 
-function inBounds(r, c) {
-  return r >= 0 && r < ROWS && c >= 0 && c <= r;
+function inBounds(rows, r, c) {
+  return r >= 0 && r < rows && c >= 0 && c <= r;
 }
 
 function getEdge({ hEdges, lEdges, rEdges }, r1, c1, r2, c2) {
@@ -38,8 +37,8 @@ function setEdge(hEdges, lEdges, rEdges, r1, c1, r2, c2, val) {
   else           rEdges[rT][cT] = val;
 }
 
-function isAdjacent(r1, c1, r2, c2) {
-  if (!inBounds(r1, c1) || !inBounds(r2, c2)) return false;
+function isAdjacent(rows, r1, c1, r2, c2) {
+  if (!inBounds(rows, r1, c1) || !inBounds(rows, r2, c2)) return false;
   if (r1 === r2) return Math.abs(c1 - c2) === 1;
   const [rT, cT, rB, cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
   if (rB !== rT + 1) return false;
@@ -47,24 +46,22 @@ function isAdjacent(r1, c1, r2, c2) {
 }
 
 export function isValidMove(state, r1, c1, r2, c2) {
-  return isAdjacent(r1, c1, r2, c2) && getEdge(state, r1, c1, r2, c2) === null;
+  return isAdjacent(state.rows, r1, c1, r2, c2) && getEdge(state, r1, c1, r2, c2) === null;
 }
 
 // The at-most-2 triangles that share the given edge
-function adjacentTriangles(r1, c1, r2, c2) {
+function adjacentTriangles(rows, r1, c1, r2, c2) {
   const tris = [];
   if (r1 === r2) {
     const r = r1, c = Math.min(c1, c2);
-    if (r > 0)         tris.push({ type: 'up',   row: r - 1, col: c });
-    if (r <= ROWS - 2) tris.push({ type: 'down', row: r,     col: c });
+    if (r > 0)          tris.push({ type: 'up',   row: r - 1, col: c });
+    if (r <= rows - 2)  tris.push({ type: 'down', row: r,     col: c });
   } else {
     const [rT, cT, , cB] = r1 < r2 ? [r1, c1, r2, c2] : [r2, c2, r1, c1];
     tris.push({ type: 'up', row: rT, col: cT });
     if (cB === cT) {
-      // l-edge: right side of downTri[rT][cT-1]
       if (cT > 0)  tris.push({ type: 'down', row: rT, col: cT - 1 });
     } else {
-      // r-edge: left side of downTri[rT][cT]
       if (cT < rT) tris.push({ type: 'down', row: rT, col: cT });
     }
   }
@@ -84,18 +81,18 @@ function isTriComplete(hEdges, lEdges, rEdges, type, row, col) {
          rEdges[row][col]     !== null;
 }
 
-export function getNeighbors(r, c) {
+export function getNeighbors(rows, r, c) {
   const nb = [];
-  if (c > 0)           nb.push([r, c - 1]);
-  if (c < r)           nb.push([r, c + 1]);
-  if (r < ROWS - 1)  { nb.push([r + 1, c]); nb.push([r + 1, c + 1]); }
-  if (r > 0 && c < r)  nb.push([r - 1, c]);
-  if (r > 0 && c > 0)  nb.push([r - 1, c - 1]);
+  if (c > 0)                nb.push([r, c - 1]);
+  if (c < r)                nb.push([r, c + 1]);
+  if (r < rows - 1)       { nb.push([r + 1, c]); nb.push([r + 1, c + 1]); }
+  if (r > 0 && c < r)       nb.push([r - 1, c]);
+  if (r > 0 && c > 0)       nb.push([r - 1, c - 1]);
   return nb;
 }
 
 export function validSecondPoints(state, r, c) {
-  return getNeighbors(r, c)
+  return getNeighbors(state.rows, r, c)
     .filter(([nr, nc]) => isValidMove(state, r, c, nr, nc))
     .map(([nr, nc]) => ({ row: nr, col: nc }));
 }
@@ -105,7 +102,7 @@ export function isValidFirstPoint(state, r, c) {
 }
 
 export function hasAnyValidMove(state) {
-  for (let r = 0; r < ROWS; r++)
+  for (let r = 0; r < state.rows; r++)
     for (let c = 0; c <= r; c++)
       if (isValidFirstPoint(state, r, c)) return true;
   return false;
@@ -128,7 +125,7 @@ export function makeMove(state, r1, c1, r2, c2) {
   const newDown = state.downTri.map(row => [...row]);
   let gained = 0;
 
-  for (const { type, row, col } of adjacentTriangles(r1, c1, r2, c2)) {
+  for (const { type, row, col } of adjacentTriangles(state.rows, r1, c1, r2, c2)) {
     const arr = type === 'up' ? newUp : newDown;
     if (arr[row][col] !== null) continue;
     if (isTriComplete(newH, newL, newR, type, row, col)) {
@@ -140,6 +137,7 @@ export function makeMove(state, r1, c1, r2, c2) {
   const newScores = { ...state.scores, [player]: state.scores[player] + gained };
   const next = gained > 0 ? player : (player === 'player1' ? 'player2' : 'player1');
   const newState = {
+    rows: state.rows,
     dots: newDots, hEdges: newH, lEdges: newL, rEdges: newR,
     upTri: newUp, downTri: newDown,
     scores: newScores, currentPlayer: next, gameOver: false,
